@@ -1,8 +1,8 @@
-import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -21,13 +21,11 @@ public class Main {
         }
     }
 
+
+
     private static HttpServer makeServer() throws IOException {
-        String host = "localhost";
-        InetSocketAddress address = new InetSocketAddress(host, 8089);
-
-        System.out.printf("Сервер запущен: http://%s:%s%n",
-                address.getHostName(), address.getPort());
-
+        InetSocketAddress address = new InetSocketAddress("localhost", 8089);
+        System.out.println("Server started: http://localhost:8089");
         return HttpServer.create(address, 50);
     }
 
@@ -35,7 +33,9 @@ public class Main {
         server.createContext("/", Main::handleRoot);
         server.createContext("/apps", Main::handleApps);
         server.createContext("/apps/profile", Main::handleProfile);
+        server.createContext("/static", Main::handleFile);
     }
+
 
 
     private static void handleRoot(HttpExchange exchange) throws IOException {
@@ -58,6 +58,37 @@ public class Main {
 
         exchange.sendResponseHeaders(200, response.length);
         exchange.getResponseBody().write(response);
+        exchange.close();
+    }
+
+
+
+    private static void handleFile(HttpExchange exchange) throws IOException {
+        URI uri = exchange.getRequestURI();
+        String filePath = uri.getPath().replace("/static", "");
+
+        if (filePath.isEmpty() || filePath.equals("/")) {
+            filePath = "/index.html";
+        }
+
+        Path path = Path.of("homework", filePath);
+
+        if (!Files.exists(path)) {
+            send404(exchange);
+            return;
+        }
+
+        byte[] data = Files.readAllBytes(path);
+        exchange.sendResponseHeaders(200, data.length);
+        exchange.getResponseBody().write(data);
+        exchange.close();
+    }
+
+    private static void send404(HttpExchange exchange) throws IOException {
+        String msg = "404 Not Found";
+        byte[] data = msg.getBytes(StandardCharsets.UTF_8);
+        exchange.sendResponseHeaders(404, data.length);
+        exchange.getResponseBody().write(data);
         exchange.close();
     }
 }
